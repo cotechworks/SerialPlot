@@ -54,6 +54,11 @@ class SerialPlotter:
         )
         self.port_combo.pack(padx=5, pady=5, fill=tk.X)
 
+        self.refresh_ports_button = tk.Button(
+            self.control_frame, text="ポート更新", command=self.refresh_ports
+        )
+        self.refresh_ports_button.pack(padx=5, pady=5, fill=tk.X)
+
         self.connect_button = tk.Button(
             self.control_frame, text="接続", command=self.connect_serial
         )
@@ -117,6 +122,19 @@ class SerialPlotter:
     def get_serial_ports(self):
         ports = serial.tools.list_ports.comports()
         return [port.device for port in ports]
+
+    def refresh_ports(self):
+        """COMポート一覧を更新する"""
+        current_selection = self.port_combo.get()
+        new_ports = self.get_serial_ports()
+        self.port_combo['values'] = new_ports
+        
+        # 現在選択されているポートがまだ存在する場合は選択を維持
+        if current_selection in new_ports:
+            self.port_combo.set(current_selection)
+        else:
+            # 存在しない場合は選択をクリア
+            self.port_combo.set('')
 
     def connect_serial(self):
         port = self.port_combo.get()
