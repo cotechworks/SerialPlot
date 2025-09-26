@@ -21,6 +21,7 @@ class SerialPlotter:
         self.data = []
         self.data_offset = 0  # データ表示の開始位置
         self.auto_scroll_var = tk.BooleanVar(value=True)  # チェックボックス用の変数
+        self.auto_scale_y_var = tk.BooleanVar(value=True)  # 縦軸自動調整用チェックボックス
 
         self.footer_frame = tk.Frame(self.root)
         self.footer_frame.pack(fill=tk.BOTH, side=tk.BOTTOM, padx=5, pady=5)
@@ -73,18 +74,13 @@ class SerialPlotter:
         self.xmax_entry.insert(0, "100")
         self.xmax_entry.pack(padx=5, pady=5, fill=tk.X)
 
-        self.ymin_label = tk.Label(self.control_frame, text="縦軸最小値:")
-        self.ymin_label.pack(padx=5, pady=5, anchor=tk.W)
-
-        self.ymin_entry = tk.Entry(self.control_frame)
-        self.ymin_entry.insert(0, "0")
-        self.ymin_entry.pack(padx=5, pady=5, fill=tk.X)
-
-        # CSVエクスポートボタン
-        self.export_csv_button = tk.Button(
-            self.control_frame, text="CSVエクスポート", command=self.export_csv_data
+        # 縦軸自動調整チェックボックス
+        self.auto_scale_y_checkbox = tk.Checkbutton(
+            self.control_frame,
+            text="縦軸下限の自動調整",
+            variable=self.auto_scale_y_var
         )
-        self.export_csv_button.pack(padx=5, pady=5, fill=tk.X)
+        self.auto_scale_y_checkbox.pack(padx=5, pady=5, anchor=tk.W)
 
         # 横スクロール用スライダー
         self.scroll_label = tk.Label(self.control_frame, text="データスクロール:")
@@ -95,7 +91,7 @@ class SerialPlotter:
             from_=0,
             to=0,
             orient=tk.HORIZONTAL,
-            command=self.on_scroll_change
+            command=self.on_scroll_change,
         )
         self.scroll_scale.pack(padx=5, pady=5, fill=tk.X)
 
@@ -104,9 +100,15 @@ class SerialPlotter:
             self.control_frame,
             text="自動スクロール",
             variable=self.auto_scroll_var,
-            command=self.on_auto_scroll_toggle
+            command=self.on_auto_scroll_toggle,
         )
         self.auto_scroll_checkbox.pack(padx=5, pady=5, anchor=tk.W)
+
+        # CSVエクスポートボタン
+        self.export_csv_button = tk.Button(
+            self.control_frame, text="CSVエクスポート", command=self.export_csv_data
+        )
+        self.export_csv_button.pack(padx=5, pady=5, fill=tk.X)
 
         # プロット表示用のフレーム
         self.plot_frame = tk.Frame(self.root)
@@ -162,12 +164,6 @@ class SerialPlotter:
         except ValueError:
             return 100
 
-    def get_ymin(self):
-        try:
-            return float(self.ymin_entry.get())
-        except ValueError:
-            return 0.0
-
     def on_scroll_change(self, value):
         """スライダーの値が変更された際のコールバック"""
         self.data_offset = int(value)
@@ -189,7 +185,7 @@ class SerialPlotter:
 
         # 現在表示されているデータを取得（update_plotと同じロジック）
         xmax = self.get_xmax()
-        
+
         if len(self.data) <= xmax:
             plot_data = self.data
             start_index = 0
@@ -202,30 +198,34 @@ class SerialPlotter:
         file_path = filedialog.asksaveasfilename(
             defaultextension=".csv",
             filetypes=[("CSV files", "*.csv"), ("All files", "*.*")],
-            title="CSVファイルの保存"
+            title="CSVファイルの保存",
         )
 
         if file_path:
             try:
-                with open(file_path, 'w', newline='', encoding='utf-8') as csvfile:
+                with open(file_path, "w", newline="", encoding="utf-8") as csvfile:
                     writer = csv.writer(csvfile)
-                    
+
                     # ヘッダーを書き込み
-                    writer.writerow(['Index', 'Value'])
-                    
+                    writer.writerow(["Index", "Value"])
+
                     # データを書き込み（実際のインデックスを使用）
                     for i, value in enumerate(plot_data):
                         actual_index = start_index + i
                         writer.writerow([actual_index, value])
-                
-                messagebox.showinfo("成功", f"データが正常にエクスポートされました。\n{file_path}\n表示範囲: {start_index}-{start_index + len(plot_data) - 1}")
-                
+
+                messagebox.showinfo(
+                    "成功",
+                    f"データが正常にエクスポートされました。\n{file_path}\n表示範囲: {start_index}-{start_index + len(plot_data) - 1}",
+                )
+
             except Exception as e:
-                messagebox.showerror("エラー", f"CSVファイルの保存中にエラーが発生しました:\n{str(e)}")
+                messagebox.showerror(
+                    "エラー", f"CSVファイルの保存中にエラーが発生しました:\n{str(e)}"
+                )
 
     def update_plot(self, frame):
         xmax = self.get_xmax()
-        ymin = self.get_ymin()
         auto_scroll = self.auto_scroll_var.get()  # チェックボックスの状態を取得
 
         # スライダーに基づいてデータ範囲を取得
@@ -237,17 +237,17 @@ class SerialPlotter:
             # データが表示範囲を超える場合
             total_data = len(self.data)
             max_offset = total_data - xmax
-            
+
             # スライダーの範囲を更新
-            current_max = self.scroll_scale.cget('to')
+            current_max = self.scroll_scale.cget("to")
             if current_max != max_offset:
                 self.scroll_scale.config(to=max_offset)
-                
+
                 # 自動スクロールが有効な場合、最新データを表示
                 if auto_scroll:
                     self.data_offset = max_offset
                     self.scroll_scale.set(max_offset)
-            
+
             # オフセットに基づいてデータを取得
             start_index = self.data_offset
             end_index = start_index + xmax
@@ -256,19 +256,25 @@ class SerialPlotter:
         self.ax.clear()
         if plot_data:
             self.ax.plot(range(len(plot_data)), plot_data, "b-")
-        
+
         self.ax.set_xlim(0, xmax)
 
-        # 縦軸の最小値をテキストボックスから取得して固定
-        self.ax.set_ylim(bottom=ymin)
-
-        # データがある場合は最大値を自動調整
+        # 縦軸調整の処理
         if plot_data:
-            self.ax.set_ylim(top=max(plot_data))
+            # 常に最大値は自動調整
+            max_val = max(plot_data)
+            
+            if self.auto_scale_y_var.get():
+                # チェックボックス有効：最小値も自動調整
+                min_val = min(plot_data)
+                self.ax.set_ylim(bottom=min_val, top=max_val)
+            else:
+                # チェックボックス無効：最小値は設定値で固定、最大値は自動調整
+                self.ax.set_ylim(bottom=0, top=max_val)
 
         self.ax.set_xlabel("Data Points")
         self.ax.set_ylabel("Value")
-        
+
         # タイトルに現在の表示範囲を追加
         if len(self.data) > xmax:
             auto_status = " (Auto)" if auto_scroll else " (Manual)"
@@ -276,7 +282,7 @@ class SerialPlotter:
         else:
             title = "Serial Data Plot"
         self.ax.set_title(title)
-        
+
         self.canvas.draw()
 
         # 統計情報を表示
