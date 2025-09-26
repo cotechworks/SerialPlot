@@ -19,22 +19,20 @@ class SerialPlotter:
         self.is_receiving = False
         self.receive_thread = None
         self.data = []
-        self.last_value = None
         self.data_offset = 0  # データ表示の開始位置
         self.auto_scroll_var = tk.BooleanVar(value=True)  # チェックボックス用の変数
 
         self.footer_frame = tk.Frame(self.root)
         self.footer_frame.pack(fill=tk.BOTH, side=tk.BOTTOM, padx=5, pady=5)
 
-        self.footer_label = tk.Label(
-            self.footer_frame, text="最後の受信値: なし", anchor="w"
+        self.stats_label = tk.Label(
+            self.footer_frame, text="統計情報: データなし", anchor="w"
         )
-        self.footer_label.pack(padx=5, pady=5, anchor=tk.W)
+        self.stats_label.pack(padx=5, pady=5, anchor=tk.W)
 
         self.create_widgets()
 
         self.fig, self.ax = plt.subplots()
-        (self.line,) = self.ax.plot([], [], "b-")
         self.canvas = FigureCanvasTkAgg(self.fig, master=self.plot_frame)
         self.canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
 
@@ -152,7 +150,6 @@ class SerialPlotter:
                     try:
                         value = float(line)
                         self.data.append(value)
-                        self.last_value = value
                         print(f"Received value: {value}")  # デバッグ表示
                     except ValueError:
                         print(f"非数値データを受信: {line}")  # デバッグ表示
@@ -282,11 +279,16 @@ class SerialPlotter:
         
         self.canvas.draw()
 
-        # 最後の受信値を表示
-        if self.last_value is not None:
-            self.footer_label.config(text=f"Last Received Value: {self.last_value}")
+        # 統計情報を表示
+        if plot_data:
+            max_val = max(plot_data)
+            min_val = min(plot_data)
+            avg_val = sum(plot_data) / len(plot_data)
+            self.stats_label.config(
+                text=f"統計情報 - 最大値: {max_val:.2f}, 平均値: {avg_val:.2f}, 最小値: {min_val:.2f}"
+            )
         else:
-            self.footer_label.config(text="Last Received Value: None")
+            self.stats_label.config(text="統計情報: データなし")
 
     def on_closing(self):
         # アニメーションを停止
